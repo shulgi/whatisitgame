@@ -5,9 +5,9 @@
 
 import { NextResponse } from 'next/server';
 import { getGameSession, getPuzzleById } from '@/lib/db';
-import { Pool } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
 
-const pool = new Pool({ connectionString: process.env.POSTGRES_PRISMA_URL });
+const pool = createPool({ connectionString: process.env.POSTGRES_PRISMA_URL });
 
 export async function POST(
   request: Request,

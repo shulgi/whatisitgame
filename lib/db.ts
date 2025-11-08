@@ -5,14 +5,15 @@
  * Embeddings are stored as JSON arrays for simplicity.
  */
 
-import { Pool } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
+import type { VercelPool } from '@vercel/postgres';
 
 // Singleton pool for connection reuse
-let pool: Pool | null = null;
+let pool: VercelPool | null = null;
 
-function getPool(): Pool {
+function getPool(): VercelPool {
   if (!pool) {
-    pool = new Pool({ connectionString: process.env.POSTGRES_PRISMA_URL });
+    pool = createPool({ connectionString: process.env.POSTGRES_PRISMA_URL });
   }
   return pool;
 }

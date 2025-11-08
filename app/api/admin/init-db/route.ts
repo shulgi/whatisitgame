@@ -5,11 +5,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import { Pool } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
 
 export async function GET() {
   // Use POSTGRES_PRISMA_URL for pooled connection (required for Neon)
-  const pool = new Pool({
+  const pool = createPool({
     connectionString: process.env.POSTGRES_PRISMA_URL,
   });
 

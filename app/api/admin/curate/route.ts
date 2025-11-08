@@ -11,9 +11,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { Pool } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
 
-const pool = new Pool({ connectionString: process.env.POSTGRES_PRISMA_URL });
+const pool = createPool({ connectionString: process.env.POSTGRES_PRISMA_URL });
 
 // Helper: Fetch Reddit posts
 async function fetchRedditPosts(limit: number = 50) {
