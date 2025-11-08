@@ -11,7 +11,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { Pool } from '@vercel/postgres';
+
+const pool = new Pool({ connectionString: process.env.POSTGRES_PRISMA_URL });
 
 // Helper: Fetch Reddit posts
 async function fetchRedditPosts(limit: number = 50) {
@@ -171,7 +173,7 @@ export async function GET(request: Request) {
       const postId = post.id;
 
       // Check if exists
-      const existing = await sql`SELECT id FROM puzzles WHERE reddit_post_id = ${postId}`;
+      const existing = await pool.query('SELECT id FROM puzzles WHERE reddit_post_id = $1', [postId]);
       if (existing.rows.length > 0) {
         results.push({ postId, status: 'skipped', reason: 'already exists' });
         processed++;
@@ -208,27 +210,28 @@ export async function GET(request: Request) {
       // Save to database
       const context = comments.slice(0, 3).map((c: any) => c.body).join('\n');
 
-      await sql`
-        INSERT INTO puzzles (
+      await pool.query(
+        `INSERT INTO puzzles (
           reddit_post_id, reddit_url, image_url, post_title,
           answer, category, difficulty, hints, related_terms,
           extracted_context, answer_embedding, upvotes, is_active
-        ) VALUES (
-          ${postId},
-          ${'https://reddit.com' + post.permalink},
-          ${imageUrl},
-          ${post.title},
-          ${extracted.answer},
-          ${extracted.category},
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
+          postId,
+          'https://reddit.com' + post.permalink,
+          imageUrl,
+          post.title,
+          extracted.answer,
+          extracted.category,
           'medium',
-          ${JSON.stringify(extracted.hints || [])},
-          ${JSON.stringify(extracted.related_terms || [])},
-          ${context},
-          ${JSON.stringify(answerEmbedding)},
-          ${post.score || 0},
+          JSON.stringify(extracted.hints || []),
+          JSON.stringify(extracted.related_terms || []),
+          context,
+          JSON.stringify(answerEmbedding),
+          post.score || 0,
           true
-        )
-      `;
+        ]
+      );
 
       results.push({
         postId,
@@ -241,7 +244,7 @@ export async function GET(request: Request) {
     }
 
     // Get total count
-    const countResult = await sql`SELECT COUNT(*) as count FROM puzzles`;
+    const countResult = await pool.query('SELECT COUNT(*) as count FROM puzzles');
     const totalPuzzles = parseInt(countResult.rows[0].count);
 
     return NextResponse.json({
