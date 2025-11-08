@@ -5,9 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { getGameSession, getPuzzleById } from '@/lib/db';
-import { createPool } from '@vercel/postgres';
-
-const pool = createPool({ connectionString: process.env.POSTGRES_PRISMA_URL });
+import { sql } from '@vercel/postgres';
 
 export async function POST(
   request: Request,
@@ -42,7 +40,7 @@ export async function POST(
     }
 
     // Mark session as completed (not won)
-    await pool.query(
+    await sql.query(
       'UPDATE game_sessions SET won = false, completed_at = NOW() WHERE id = $1',
       [sessionId]
     );

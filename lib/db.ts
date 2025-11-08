@@ -5,18 +5,7 @@
  * Embeddings are stored as JSON arrays for simplicity.
  */
 
-import { createPool } from '@vercel/postgres';
-import type { VercelPool } from '@vercel/postgres';
-
-// Singleton pool for connection reuse
-let pool: VercelPool | null = null;
-
-function getPool(): VercelPool {
-  if (!pool) {
-    pool = createPool({ connectionString: process.env.POSTGRES_PRISMA_URL });
-  }
-  return pool;
-}
+import { sql } from '@vercel/postgres';
 
 export interface Puzzle {
   id: number;
@@ -55,10 +44,9 @@ export interface GameSession {
  * Get a random active puzzle
  */
 export async function getRandomPuzzle(difficulty?: string): Promise<Puzzle | null> {
-  const db = getPool();
   const result = difficulty
-    ? await db.query('SELECT * FROM puzzles WHERE is_active = true AND difficulty = $1 ORDER BY RANDOM() LIMIT 1', [difficulty])
-    : await db.query('SELECT * FROM puzzles WHERE is_active = true ORDER BY RANDOM() LIMIT 1');
+    ? await sql.query('SELECT * FROM puzzles WHERE is_active = true AND difficulty = $1 ORDER BY RANDOM() LIMIT 1', [difficulty])
+    : await sql.query('SELECT * FROM puzzles WHERE is_active = true ORDER BY RANDOM() LIMIT 1');
 
   return result.rows[0] || null;
 }
@@ -67,8 +55,7 @@ export async function getRandomPuzzle(difficulty?: string): Promise<Puzzle | nul
  * Get puzzle by ID
  */
 export async function getPuzzleById(id: number): Promise<Puzzle | null> {
-  const db = getPool();
-  const result = await db.query('SELECT * FROM puzzles WHERE id = $1', [id]);
+  const result = await sql.query('SELECT * FROM puzzles WHERE id = $1', [id]);
   return result.rows[0] || null;
 }
 
@@ -76,8 +63,7 @@ export async function getPuzzleById(id: number): Promise<Puzzle | null> {
  * Create a new game session
  */
 export async function createGameSession(puzzleId: number): Promise<GameSession> {
-  const db = getPool();
-  const result = await db.query(
+  const result = await sql.query(
     'INSERT INTO game_sessions (puzzle_id) VALUES ($1) RETURNING *',
     [puzzleId]
   );
@@ -88,8 +74,7 @@ export async function createGameSession(puzzleId: number): Promise<GameSession> 
  * Get game session by ID
  */
 export async function getGameSession(sessionId: number): Promise<GameSession | null> {
-  const db = getPool();
-  const result = await db.query('SELECT * FROM game_sessions WHERE id = $1', [sessionId]);
+  const result = await sql.query('SELECT * FROM game_sessions WHERE id = $1', [sessionId]);
   return result.rows[0] || null;
 }
 
@@ -105,8 +90,7 @@ export async function addGuessToSession(
     is_correct: boolean;
   }
 ): Promise<void> {
-  const db = getPool();
-  await db.query(
+  await sql.query(
     'UPDATE game_sessions SET guesses = guesses || $1::jsonb WHERE id = $2',
     [JSON.stringify([guess]), sessionId]
   );
@@ -116,8 +100,7 @@ export async function addGuessToSession(
  * Mark session as won
  */
 export async function markSessionWon(sessionId: number): Promise<void> {
-  const db = getPool();
-  await db.query(
+  await sql.query(
     'UPDATE game_sessions SET won = true, completed_at = NOW() WHERE id = $1',
     [sessionId]
   );
@@ -127,8 +110,7 @@ export async function markSessionWon(sessionId: number): Promise<void> {
  * Update hints used
  */
 export async function updateHintsUsed(sessionId: number, hintsUsed: number): Promise<void> {
-  const db = getPool();
-  await db.query(
+  await sql.query(
     'UPDATE game_sessions SET hints_used = $1 WHERE id = $2',
     [hintsUsed, sessionId]
   );
@@ -138,7 +120,6 @@ export async function updateHintsUsed(sessionId: number, hintsUsed: number): Pro
  * Get total puzzle count
  */
 export async function getPuzzleCount(): Promise<number> {
-  const db = getPool();
-  const result = await db.query('SELECT COUNT(*) as count FROM puzzles WHERE is_active = true');
+  const result = await sql.query('SELECT COUNT(*) as count FROM puzzles WHERE is_active = true');
   return parseInt(result.rows[0].count);
 }
