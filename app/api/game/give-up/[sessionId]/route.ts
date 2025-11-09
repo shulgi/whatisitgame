@@ -11,8 +11,17 @@ export async function POST(
   request: Request,
   { params }: { params: { sessionId: string } }
 ) {
+  const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+
+  if (!connectionString) {
+    return NextResponse.json({
+      success: false,
+      error: 'Missing database connection string'
+    }, { status: 500 });
+  }
+
   const pool = new Pool({
-    connectionString: process.env.POSTGRES_PRISMA_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false }
   });
 

@@ -12,8 +12,14 @@ let pool: Pool | null = null;
 
 function getPool(): Pool {
   if (!pool) {
+    const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+
+    if (!connectionString) {
+      throw new Error('Missing database connection string. Please connect a Postgres database in Vercel.');
+    }
+
     pool = new Pool({
-      connectionString: process.env.POSTGRES_PRISMA_URL,
+      connectionString,
       ssl: { rejectUnauthorized: false }
     });
   }

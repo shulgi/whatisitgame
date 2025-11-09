@@ -8,8 +8,18 @@ import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
 export async function GET() {
+  const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+
+  if (!connectionString) {
+    return NextResponse.json({
+      success: false,
+      error: 'Missing database connection string',
+      details: 'Please connect a Neon Postgres database in Vercel Storage settings.'
+    }, { status: 500 });
+  }
+
   const pool = new Pool({
-    connectionString: process.env.POSTGRES_PRISMA_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false }
   });
 

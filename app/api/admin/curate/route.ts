@@ -151,8 +151,18 @@ async function getEmbedding(text: string) {
 
 // Main handler
 export async function GET(request: Request) {
+  const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+
+  if (!connectionString) {
+    return NextResponse.json({
+      success: false,
+      error: 'Missing database connection string',
+      details: 'Please connect a Neon Postgres database in Vercel Storage settings.'
+    }, { status: 500 });
+  }
+
   const pool = new Pool({
-    connectionString: process.env.POSTGRES_PRISMA_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false }
   });
 
