@@ -190,7 +190,7 @@ Respond with ONLY valid JSON, no other text.`;
 // Helper: Get embedding
 async function getEmbedding(text: string) {
   const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-  const HF_API_URL = 'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2';
+  const HF_API_URL = 'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2';
 
   const headers: any = { 'Content-Type': 'application/json' };
   if (HF_API_KEY) headers['Authorization'] = `Bearer ${HF_API_KEY}`;
@@ -209,7 +209,10 @@ async function getEmbedding(text: string) {
     return getEmbedding(text);
   }
 
-  if (!response.ok) throw new Error(`HF API error: ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HF API error: ${response.status} - ${errorText}`);
+  }
 
   const embedding = await response.json();
   return Array.isArray(embedding[0]) ? embedding[0] : embedding;
