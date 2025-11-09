@@ -5,12 +5,17 @@
 
 import { NextResponse } from 'next/server';
 import { getGameSession, getPuzzleById } from '@/lib/db';
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
 
 export async function POST(
   request: Request,
   { params }: { params: { sessionId: string } }
 ) {
+  const pool = new Pool({
+    connectionString: process.env.POSTGRES_PRISMA_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
     const sessionId = parseInt(params.sessionId);
 
@@ -40,10 +45,12 @@ export async function POST(
     }
 
     // Mark session as completed (not won)
-    await sql.query(
+    await pool.query(
       'UPDATE game_sessions SET won = false, completed_at = NOW() WHERE id = $1',
       [sessionId]
     );
+
+    await pool.end();
 
     return NextResponse.json({
       answer: puzzle.answer,
@@ -54,6 +61,7 @@ export async function POST(
     });
   } catch (error) {
     console.error('Error giving up:', error);
+    await pool.end();
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

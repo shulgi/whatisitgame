@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
 
 // Helper: Fetch Reddit posts
 async function fetchRedditPosts(limit: number = 50) {
@@ -151,6 +151,11 @@ async function getEmbedding(text: string) {
 
 // Main handler
 export async function GET(request: Request) {
+  const pool = new Pool({
+    connectionString: process.env.POSTGRES_PRISMA_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '1');
@@ -171,7 +176,7 @@ export async function GET(request: Request) {
       const postId = post.id;
 
       // Check if exists
-      const existing = await sql.query('SELECT id FROM puzzles WHERE reddit_post_id = $1', [postId]);
+      const existing = await pool.query('SELECT id FROM puzzles WHERE reddit_post_id = $1', [postId]);
       if (existing.rows.length > 0) {
         results.push({ postId, status: 'skipped', reason: 'already exists' });
         processed++;
@@ -208,7 +213,7 @@ export async function GET(request: Request) {
       // Save to database
       const context = comments.slice(0, 3).map((c: any) => c.body).join('\n');
 
-      await sql.query(
+      await pool.query(
         `INSERT INTO puzzles (
           reddit_post_id, reddit_url, image_url, post_title,
           answer, category, difficulty, hints, related_terms,
@@ -242,8 +247,10 @@ export async function GET(request: Request) {
     }
 
     // Get total count
-    const countResult = await sql.query('SELECT COUNT(*) as count FROM puzzles');
+    const countResult = await pool.query('SELECT COUNT(*) as count FROM puzzles');
     const totalPuzzles = parseInt(countResult.rows[0].count);
+
+    await pool.end();
 
     return NextResponse.json({
       success: true,
@@ -257,6 +264,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('Curation error:', error);
+    await pool.end();
     return NextResponse.json({
       success: false,
       error: error.message,

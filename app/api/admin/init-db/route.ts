@@ -5,15 +5,19 @@
  */
 
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
 
 export async function GET() {
+  const pool = new Pool({
+    connectionString: process.env.POSTGRES_PRISMA_URL,
+    ssl: { rejectUnauthorized: false }
+  });
 
   try {
     console.log('🔧 Initializing database schema...');
 
     // Create puzzles table
-    await sql.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS puzzles (
         id SERIAL PRIMARY KEY,
         reddit_post_id TEXT UNIQUE NOT NULL,
@@ -34,7 +38,7 @@ export async function GET() {
     `);
 
     // Create game_sessions table
-    await sql.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS game_sessions (
         id SERIAL PRIMARY KEY,
         puzzle_id INTEGER REFERENCES puzzles(id),
@@ -47,12 +51,14 @@ export async function GET() {
     `);
 
     // Create indexes
-    await sql.query(`CREATE INDEX IF NOT EXISTS idx_puzzles_active ON puzzles(is_active);`);
-    await sql.query(`CREATE INDEX IF NOT EXISTS idx_puzzles_reddit_id ON puzzles(reddit_post_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_puzzles_active ON puzzles(is_active);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_puzzles_reddit_id ON puzzles(reddit_post_id);`);
 
     // Check puzzle count
-    const result = await sql.query(`SELECT COUNT(*) as count FROM puzzles;`);
+    const result = await pool.query(`SELECT COUNT(*) as count FROM puzzles;`);
     const count = parseInt(result.rows[0].count);
+
+    await pool.end();
 
     return NextResponse.json({
       success: true,
@@ -66,6 +72,7 @@ export async function GET() {
 
   } catch (error: any) {
     console.error('Error initializing database:', error);
+    await pool.end();
     return NextResponse.json({
       success: false,
       error: error.message,
