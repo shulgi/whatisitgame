@@ -10,6 +10,7 @@ import { useState } from 'react';
 export default function AdminPage() {
   const [initResult, setInitResult] = useState<any>(null);
   const [curateResult, setCurateResult] = useState<any>(null);
+  const [seedResult, setSeedResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const handleInitDb = async () => {
@@ -32,6 +33,18 @@ export default function AdminPage() {
       setCurateResult(data);
     } catch (error: any) {
       setCurateResult({ success: false, error: error.message });
+    }
+    setLoading(false);
+  };
+
+  const handleSeedSamples = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/seed-samples');
+      const data = await res.json();
+      setSeedResult(data);
+    } catch (error: any) {
+      setSeedResult({ success: false, error: error.message });
     }
     setLoading(false);
   };
@@ -80,11 +93,48 @@ export default function AdminPage() {
 
       <hr style={{ margin: '30px 0' }} />
 
+      {/* Seed Sample Puzzles */}
+      <section style={{ marginBottom: '40px' }}>
+        <h2>2. Add Sample Puzzles (Recommended)</h2>
+        <p>Add 5 pre-populated sample puzzles for testing. Use this if Reddit API is blocked.</p>
+        <button
+          onClick={handleSeedSamples}
+          disabled={loading}
+          style={{
+            padding: '10px 20px',
+            fontSize: '16px',
+            backgroundColor: '#ffc107',
+            color: 'black',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.5 : 1,
+          }}
+        >
+          {loading ? 'Adding...' : 'Add Sample Puzzles'}
+        </button>
+
+        {seedResult && (
+          <pre style={{
+            marginTop: '20px',
+            padding: '15px',
+            backgroundColor: seedResult.success ? '#d4edda' : '#f8d7da',
+            border: `1px solid ${seedResult.success ? '#c3e6cb' : '#f5c6cb'}`,
+            borderRadius: '5px',
+            overflow: 'auto',
+          }}>
+            {JSON.stringify(seedResult, null, 2)}
+          </pre>
+        )}
+      </section>
+
+      <hr style={{ margin: '30px 0' }} />
+
       {/* Curate Puzzles */}
       <section>
-        <h2>2. Curate Puzzles</h2>
+        <h2>3. Curate from Reddit (Optional)</h2>
         <p>Fetch puzzles from Reddit. Each click processes 1-2 posts (~30 seconds each).</p>
-        <p><strong>Note:</strong> Call multiple times to add more puzzles. Aim for at least 10 total.</p>
+        <p><strong>Note:</strong> Reddit may block Vercel IPs. Use sample puzzles instead if this fails.</p>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
           <button
@@ -150,11 +200,12 @@ export default function AdminPage() {
         <h3>📝 Instructions</h3>
         <ol>
           <li><strong>Initialize Database</strong> - Click once to create tables</li>
-          <li><strong>Add Puzzles</strong> - Click "Add 1-2 Puzzles" multiple times until you have 10+ puzzles</li>
+          <li><strong>Add Sample Puzzles</strong> - Click to add 5 test puzzles (fastest option)</li>
+          <li><strong>Or Curate from Reddit</strong> - If you want real Reddit data and it's not blocked</li>
           <li><strong>Play!</strong> - Go back to homepage and play the game</li>
         </ol>
         <p style={{ marginTop: '15px', color: '#666', fontSize: '14px' }}>
-          💡 Tip: Each curation call takes ~30 seconds. Be patient and wait for results before clicking again.
+          💡 Tip: Sample puzzles are the easiest way to get started. Reddit curation may be blocked by Vercel.
         </p>
       </section>
 
