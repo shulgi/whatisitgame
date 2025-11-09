@@ -190,8 +190,8 @@ Respond with ONLY valid JSON, no other text.`;
 // Helper: Get embedding
 async function getEmbedding(text: string) {
   const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-  // Using a stable model known to work with Inference API
-  const HF_API_URL = 'https://api-inference.huggingface.co/models/sentence-transformers/all-mpnet-base-v2';
+  // Using new HuggingFace router endpoint
+  const HF_API_URL = 'https://router.huggingface.co/hf-inference/models/sentence-transformers/all-mpnet-base-v2';
 
   const headers: any = { 'Content-Type': 'application/json' };
   if (HF_API_KEY) headers['Authorization'] = `Bearer ${HF_API_KEY}`;
