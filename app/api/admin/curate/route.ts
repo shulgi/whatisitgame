@@ -190,7 +190,8 @@ Respond with ONLY valid JSON, no other text.`;
 // Helper: Get embedding
 async function getEmbedding(text: string) {
   const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-  const HF_API_URL = 'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2';
+  // Using a stable model known to work with Inference API
+  const HF_API_URL = 'https://api-inference.huggingface.co/models/sentence-transformers/all-mpnet-base-v2';
 
   const headers: any = { 'Content-Type': 'application/json' };
   if (HF_API_KEY) headers['Authorization'] = `Bearer ${HF_API_KEY}`;
@@ -198,14 +199,12 @@ async function getEmbedding(text: string) {
   const response = await fetch(HF_API_URL, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      inputs: text.toLowerCase().trim(),
-      options: { wait_for_model: true },
-    }),
+    body: JSON.stringify({ inputs: text.toLowerCase().trim() }),
   });
 
+  // Model loading - retry after delay
   if (!response.ok && response.status === 503) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
     return getEmbedding(text);
   }
 
@@ -215,7 +214,13 @@ async function getEmbedding(text: string) {
   }
 
   const embedding = await response.json();
-  return Array.isArray(embedding[0]) ? embedding[0] : embedding;
+
+  // Handle different response formats
+  if (Array.isArray(embedding)) {
+    return Array.isArray(embedding[0]) ? embedding[0] : embedding;
+  }
+
+  throw new Error('Unexpected embedding format from HuggingFace');
 }
 
 // Main handler
