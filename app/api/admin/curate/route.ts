@@ -13,16 +13,61 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
+// Helper: Get Reddit OAuth access token
+async function getRedditAccessToken(): Promise<string | null> {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    console.log('Reddit OAuth credentials not configured, using unauthenticated API');
+    return null;
+  }
+
+  try {
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)'
+      },
+      body: 'grant_type=client_credentials'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to get Reddit access token:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error('Error getting Reddit access token:', error);
+    return null;
+  }
+}
+
 // Helper: Fetch Reddit posts
 async function fetchRedditPosts(limit: number = 50) {
-  const url = `https://www.reddit.com/r/whatisthisthing/search.json?q=flair:Solved&sort=top&t=month&limit=${limit}&restrict_sr=on`;
+  const accessToken = await getRedditAccessToken();
+  const baseUrl = accessToken
+    ? 'https://oauth.reddit.com'
+    : 'https://www.reddit.com';
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
-      'Accept': 'application/json'
-    },
-  });
+  const url = `${baseUrl}/r/whatisthisthing/search.json?q=flair:Solved&sort=top&t=month&limit=${limit}&restrict_sr=on`;
+
+  const headers: any = {
+    'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
+    'Accept': 'application/json'
+  };
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -48,14 +93,23 @@ function getImageUrl(post: any): string | null {
 
 // Helper: Fetch comments
 async function fetchComments(postId: string) {
-  const url = `https://www.reddit.com/r/whatisthisthing/comments/${postId}.json?limit=20`;
+  const accessToken = await getRedditAccessToken();
+  const baseUrl = accessToken
+    ? 'https://oauth.reddit.com'
+    : 'https://www.reddit.com';
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
-      'Accept': 'application/json'
-    },
-  });
+  const url = `${baseUrl}/r/whatisthisthing/comments/${postId}.json?limit=20`;
+
+  const headers: any = {
+    'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
+    'Accept': 'application/json'
+  };
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -298,8 +352,16 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: 'Reddit API blocked the request (403 Forbidden)',
-        details: 'Reddit may be blocking requests from Vercel serverless functions. Try again in a few minutes, or run the curation script locally using: node scripts-node/curate.js',
-        reddit_blocked: true
+        details: 'To fix: Add Reddit OAuth credentials in Vercel environment variables. Get them at https://www.reddit.com/prefs/apps (create a "script" app). Add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to your environment variables.',
+        reddit_blocked: true,
+        setup_instructions: {
+          step1: 'Go to https://www.reddit.com/prefs/apps',
+          step2: 'Click "create another app"',
+          step3: 'Select type: "script"',
+          step4: 'Use "http://localhost" as redirect URI',
+          step5: 'Copy the client ID (under the app name) and secret',
+          step6: 'Add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to Vercel environment variables'
+        }
       }, { status: 503 });
     }
 
