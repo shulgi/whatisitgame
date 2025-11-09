@@ -18,10 +18,16 @@ async function fetchRedditPosts(limit: number = 50) {
   const url = `https://www.reddit.com/r/whatisthisthing/search.json?q=flair:Solved&sort=top&t=month&limit=${limit}&restrict_sr=on`;
 
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'WhatIsItGame/1.0' },
+    headers: {
+      'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
+      'Accept': 'application/json'
+    },
   });
 
-  if (!response.ok) throw new Error(`Reddit API error: ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Reddit API error: ${response.status} - ${errorText}`);
+  }
 
   const data = await response.json();
   return data.data.children.map((child: any) => child.data);
@@ -45,10 +51,16 @@ async function fetchComments(postId: string) {
   const url = `https://www.reddit.com/r/whatisthisthing/comments/${postId}.json?limit=20`;
 
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'WhatIsItGame/1.0' },
+    headers: {
+      'User-Agent': 'web:whatisitgame:v1.0.0 (by /u/WhatIsItGameBot)',
+      'Accept': 'application/json'
+    },
   });
 
-  if (!response.ok) throw new Error(`Reddit comments API error: ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Reddit comments API error: ${response.status} - ${errorText}`);
+  }
 
   const data = await response.json();
   if (data.length < 2) return [];
@@ -185,6 +197,11 @@ export async function GET(request: Request) {
     for (const post of solvedPosts.slice(0, batchSize)) {
       const postId = post.id;
 
+      // Add delay to avoid rate limiting (Reddit allows ~60 requests/min)
+      if (processed > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
       // Check if exists
       const existing = await pool.query('SELECT id FROM puzzles WHERE reddit_post_id = $1', [postId]);
       if (existing.rows.length > 0) {
@@ -275,6 +292,17 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error('Curation error:', error);
     await pool.end();
+
+    // Special handling for Reddit 403 errors
+    if (error.message.includes('403')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Reddit API blocked the request (403 Forbidden)',
+        details: 'Reddit may be blocking requests from Vercel serverless functions. Try again in a few minutes, or run the curation script locally using: node scripts-node/curate.js',
+        reddit_blocked: true
+      }, { status: 503 });
+    }
+
     return NextResponse.json({
       success: false,
       error: error.message,
